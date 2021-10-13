@@ -3,7 +3,7 @@
 go-health does away with the kitchen sink mentality of other health check libraries. You aren't getting a default HTTP
 handler out of the box that is router dependent or has opinions about the shape or format of the health data being
 published. You aren't getting pre-built health checks. But you do get a simple system for checking the health of
-components asynchronously with built-in caching and timeouts. Only what you absolutely need, and nothing else.
+resources asynchronously with built-in caching and timeouts. Only what you absolutely need, and nothing else.
 
 ## Quickstart
 ```go
@@ -26,7 +26,7 @@ healthChecks := []*health.Check{redisHealthCheck, cockroachDbHealthCheck}
 ctx := context.Background()
 healthChecker := health.Checker{Checks: checks}
 
-// Kick off a goroutine for each check automatically and store the information on the original Check structs
+// Kick off a goroutine for each check automatically and store the results on the original check
 healthChecker.Start(ctx)
 
 // Retrieve the most recent result for each of the checks
