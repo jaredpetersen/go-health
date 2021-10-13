@@ -29,7 +29,7 @@ healthChecker := health.Checker{Checks: checks}
 // Kick off a goroutine for each check automatically and store the results on the original check
 healthChecker.Start(ctx)
 
-// Retrieve the most recent result for each of the checks
+// Retrieve the most recent result for all of the checks
 healthCheckerStatus := healthChecker.Check()
 ```
 
