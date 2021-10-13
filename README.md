@@ -1,5 +1,5 @@
 # go-health
-#### Barebones, detailed health check library for Go
+#### 🏥 Barebones, detailed health check library for Go
 go-health does away with the kitchen sink mentality of other health check libraries. You aren't getting a default HTTP
 handler out of the box that is router dependent or has opinions about the shape or format of the health data being
 published. You aren't getting pre-built health checks. But you do get a simple system for checking the health of
