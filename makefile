@@ -1,4 +1,3 @@
-# Go parameters
 GO_CMD=go
 GO_BUILD=$(GO_CMD) build
 GO_FMT=gofmt
@@ -6,7 +5,7 @@ GO_TEST=$(GO_CMD) test
 GO_COVER=$(GO_CMD) tool cover
 GO_CLEAN=$(GO_CMD) clean
 
-all: test build
+all: build test
 build:
 	$(GO_BUILD) ./...
 format:
