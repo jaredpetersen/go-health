@@ -10,7 +10,7 @@ import (
 
 func TestNewCheck(t *testing.T) {
 	checkFunc := func(ctx context.Context) Status {
-		return Status{State: Up}
+		return Status{State: StateUp}
 	}
 	check := NewCheck("mycheck", checkFunc)
 
@@ -21,12 +21,12 @@ func TestNewCheck(t *testing.T) {
 
 func TestNew(t *testing.T) {
 	checkAFunc := func(ctx context.Context) Status {
-		return Status{State: Up}
+		return Status{State: StateUp}
 	}
 	checkA := NewCheck("checkA", checkAFunc)
 
 	checkBFunc := func(ctx context.Context) Status {
-		return Status{State: Up}
+		return Status{State: StateUp}
 	}
 	checkB := NewCheck("checkB", checkBFunc)
 	checkB.TTL = time.Second * 2
@@ -50,13 +50,13 @@ func TestCheck(t *testing.T) {
 	}
 
 	checkAHealthFunc := func(ctx context.Context) Status {
-		return Status{State: Up}
+		return Status{State: StateUp}
 	}
 	checkA := NewCheck("checkA", checkAHealthFunc)
 
 	checkBHealthFunc := func(ctx context.Context) Status {
 		return Status{
-			State:   Degraded,
+			State:   StateDegraded,
 			Details: CustomStatusDetails{ConnectionCount: 652},
 		}
 	}
@@ -73,28 +73,28 @@ func TestCheck(t *testing.T) {
 
 	status := healthChecker.Check()
 
-	assert.Equal(t, Degraded, status.State)
+	assert.Equal(t, StateDegraded, status.State)
 	assert.Equal(t, 2, len(status.CheckStatuses))
 
 	checkAStatus := status.CheckStatuses[checkA.Name]
 	assert.Equal(t, checkA.Name, checkAStatus.Name)
-	assert.Equal(t, Status{State: Up}, checkAStatus.Status)
+	assert.Equal(t, Status{State: StateUp}, checkAStatus.Status)
 	assert.NotEqual(t, 0, checkAStatus.LastExecuted, "Last executed time was not updated")
 
 	checkBStatus := status.CheckStatuses[checkB.Name]
 	assert.Equal(t, checkB.Name, checkBStatus.Name)
-	assert.Equal(t, Status{State: Degraded, Details: CustomStatusDetails{ConnectionCount: 652}}, checkBStatus.Status)
+	assert.Equal(t, Status{State: StateDegraded, Details: CustomStatusDetails{ConnectionCount: 652}}, checkBStatus.Status)
 	assert.NotEqual(t, 0, checkBStatus.LastExecuted, "Last executed time was not updated")
 }
 
 func TestCheckInitiallyDown(t *testing.T) {
 	checkAHealthFunc := func(ctx context.Context) Status {
-		return Status{State: Up}
+		return Status{State: StateUp}
 	}
 	checkA := NewCheck("checkA", checkAHealthFunc)
 
 	checkBHealthFunc := func(ctx context.Context) Status {
-		return Status{State: Up}
+		return Status{State: StateUp}
 	}
 	checkB := NewCheck("checkB", checkBHealthFunc)
 
@@ -106,14 +106,14 @@ func TestCheckInitiallyDown(t *testing.T) {
 
 	status := healthChecker.Check()
 
-	assert.Equal(t, Down, status.State)
+	assert.Equal(t, StateDown, status.State)
 	assert.Equal(t, 2, len(status.CheckStatuses))
 
 	checkAStatus := status.CheckStatuses[checkA.Name]
-	assert.Equal(t, Status{State: Down}, checkAStatus.Status)
+	assert.Equal(t, Status{State: StateDown}, checkAStatus.Status)
 
 	checkBStatus := status.CheckStatuses[checkB.Name]
-	assert.Equal(t, Status{State: Down}, checkBStatus.Status)
+	assert.Equal(t, Status{State: StateDown}, checkBStatus.Status)
 }
 
 func TestCheckTimeoutEndsExecution(t *testing.T) {
@@ -132,12 +132,12 @@ func TestCheckTimeoutEndsExecution(t *testing.T) {
 		case <-time.After(time.Millisecond * 300):
 			// Only return Up after the timeout has been exceeded
 			return Status{
-				State:   Up,
+				State:   StateUp,
 				Details: CustomStatusDetails{ConnectionCount: 801},
 			}
 		case <-ctx.Done():
 			// Return Degraded if the timeout has been exceeded
-			return Status{State: Degraded}
+			return Status{State: StateDegraded}
 		}
 	}
 	checkA := NewCheck("checkA", checkAFunc)
@@ -149,7 +149,7 @@ func TestCheckTimeoutEndsExecution(t *testing.T) {
 		assert.False(t, ok, "Check was supplied with a deadline when timeout is not specified")
 
 		return Status{
-			State:   Up,
+			State:   StateUp,
 			Details: CustomStatusDetails{ConnectionCount: 347},
 		}
 	}
@@ -167,17 +167,17 @@ func TestCheckTimeoutEndsExecution(t *testing.T) {
 
 	status := healthChecker.Check()
 
-	assert.Equal(t, Degraded, status.State)
+	assert.Equal(t, StateDegraded, status.State)
 	assert.Equal(t, 2, len(status.CheckStatuses))
 
 	checkAStatus := status.CheckStatuses[checkA.Name]
 	assert.Equal(t, checkA.Name, checkAStatus.Name)
-	assert.Equal(t, Status{State: Degraded}, checkAStatus.Status)
+	assert.Equal(t, Status{State: StateDegraded}, checkAStatus.Status)
 	assert.NotEqual(t, 0, checkAStatus.LastExecuted, "Last executed time was not updated")
 
 	checkBStatus := status.CheckStatuses[checkB.Name]
 	assert.Equal(t, checkB.Name, checkBStatus.Name)
-	assert.Equal(t, Status{State: Up, Details: CustomStatusDetails{ConnectionCount: 347}}, checkBStatus.Status)
+	assert.Equal(t, Status{State: StateUp, Details: CustomStatusDetails{ConnectionCount: 347}}, checkBStatus.Status)
 	assert.NotEqual(t, 0, checkBStatus.LastExecuted, "Last executed time was not updated")
 }
 
@@ -185,7 +185,7 @@ func TestCheckExecutesOnTimer(t *testing.T) {
 	checkACounter := 0
 	checkAFunc := func(ctx context.Context) Status {
 		checkACounter++
-		return Status{State: Up}
+		return Status{State: StateUp}
 	}
 	checkA := NewCheck("checkA", checkAFunc)
 	checkA.TTL = time.Millisecond * 100
@@ -193,7 +193,7 @@ func TestCheckExecutesOnTimer(t *testing.T) {
 	checkBCounter := 0
 	checkBFunc := func(ctx context.Context) Status {
 		checkBCounter++
-		return Status{State: Down}
+		return Status{State: StateDown}
 	}
 	checkB := NewCheck("checkB", checkBFunc)
 	checkB.TTL = time.Millisecond * 200
@@ -220,7 +220,7 @@ func TestCheckCancelContextStopsCheck(t *testing.T) {
 	checkACounter := 0
 	checkAFunc := func(ctx context.Context) Status {
 		checkACounter++
-		return Status{State: Up}
+		return Status{State: StateUp}
 	}
 	checkA := NewCheck("checkA", checkAFunc)
 	checkA.TTL = time.Millisecond * 100
@@ -228,7 +228,7 @@ func TestCheckCancelContextStopsCheck(t *testing.T) {
 	checkBCounter := 0
 	checkBFunc := func(ctx context.Context) Status {
 		checkBCounter++
-		return Status{State: Down}
+		return Status{State: StateDown}
 	}
 	checkB := NewCheck("checkB", checkBFunc)
 	checkA.TTL = time.Millisecond * 200

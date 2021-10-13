@@ -8,19 +8,19 @@ components asynchronously with built-in caching and timeouts. Only what you abso
 ## Quickstart
 ```go
 // Create your health checks
-redisHealthCheckFunc := func(ctx context.Context) Status {
-    return Status{State: Up}
+redisHealthCheckFunc := func(ctx context.Context) health.Status {
+    return health.Status{State: health.StateUp}
 }
 redisHealthCheck := NewCheck("redis", redisHealthCheckFunc)
 
-cockroachDBHealthCheckFunc := func(ctx context.Context) Status {
-    return Status{State: Up}
+cockroachDBHealthCheckFunc := func(ctx context.Context) health.Status {
+    return health.Status{State: health.StateUp}
 }
 cockroachDbHealthCheck := NewCheck("cockroachDb", cockroachDBHealthCheckFunc)
 cockroachDbHealthCheck.Timeout = time.Second * 2
 
 // Add the checks to a slice for consumption
-healthChecks := []*Check{redisHealthCheck, cockroachDbHealthCheck}
+healthChecks := []*health.Check{redisHealthCheck, cockroachDbHealthCheck}
 
 // Set up the health checker that will be executing these checks
 ctx := context.Background()
@@ -61,7 +61,7 @@ appropriately. For more information on context with deadline, see the
 
 ```go
 exampleCheckFunc := func(ctx context.Context) health.Status {
-    statusDown := health.Status{State: Down}
+    statusDown := health.Status{State: health.StateDown}
 
     req, err := http.NewRequestWithContext(ctx, "GET", "http://example.com", nil)
     if err != nil {
@@ -75,7 +75,7 @@ exampleCheckFunc := func(ctx context.Context) health.Status {
     }
 
     if res.StatusCode == http.StatusOK {
-        return Status{State: Up}
+        return health.Status{State: health.StateUp}
     } else {
         return statusDown
     }
@@ -101,6 +101,6 @@ type CustomHTTPStatusDetails struct {
 
 ```go
 return health.Status{
-    State:   health.Up,
+    State:   health.StateUp,
     Details: CustomHTTPStatusDetails{ResponseTime: time.Millisecond * 352},
 }

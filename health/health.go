@@ -11,9 +11,9 @@ type State int
 // States must be ordered from most degraded to least degraded here so that checks work their way up to the best state
 
 const (
-	Down State = iota
-	Degraded
-	Up
+	StateDown State = iota
+	StateDegraded
+	StateUp
 )
 
 // CheckerStatus represents the health of the all of the resources being checked
@@ -88,7 +88,7 @@ func (chkr Checker) Check() *CheckerStatus {
 
 	// Use Up as the initial state so that it may be overriden by the check if necessary
 	// If checks are not configured, then we also default to Up
-	state := Up
+	state := StateUp
 
 	for _, check := range chkr.Checks {
 		state = compareState(state, check.Status.State)
@@ -116,12 +116,12 @@ func executeCheckWithTimeout(ctx context.Context, check *Check) {
 func compareState(stateA State, stateB State) State {
 	var state State
 
-	if stateA == Down || stateB == Down {
-		state = Down
-	} else if stateA == Degraded || stateB == Degraded {
-		state = Degraded
+	if stateA == StateDown || stateB == StateDown {
+		state = StateDown
+	} else if stateA == StateDegraded || stateB == StateDegraded {
+		state = StateDegraded
 	} else {
-		state = Up
+		state = StateUp
 	}
 
 	return state
