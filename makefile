@@ -11,7 +11,7 @@ build:
 format:
 	$(GO_FMT) -w -s .
 test:
-	$(GO_TEST) -coverprofile cover.out ./...
+	$(GO_TEST) -race -coverprofile cover.out ./...
 	$(GO_COVER) -html=cover.out -o cover.html
 clean:
 	$(GO_CLEAN)

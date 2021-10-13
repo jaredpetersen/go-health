@@ -7,29 +7,47 @@ resources asynchronously with built-in caching and timeouts. Only what you absol
 
 ## Quickstart
 ```go
-// Create your health checks
-redisHealthCheckFunc := func(ctx context.Context) health.Status {
-    return health.Status{State: health.StateUp}
-}
-redisHealthCheck := NewCheck("redis", redisHealthCheckFunc)
+// Create the health monitor that will be polling the resources.
+healthMonitor := health.New()
 
-cockroachDBHealthCheckFunc := func(ctx context.Context) health.Status {
-    return health.Status{State: health.StateUp}
-}
-cockroachDbHealthCheck := NewCheck("cockroachDb", cockroachDBHealthCheckFunc)
-cockroachDbHealthCheck.Timeout = time.Second * 2
-
-// Add the checks to a slice for consumption
-healthChecks := []*health.Check{redisHealthCheck, cockroachDbHealthCheck}
-
-// Set up the health monitor that will be executing these checks
+// Prepare the context -- this can be used to stop async monitoring.
 ctx := context.Background()
-healthMonitor := health.New(checks)
 
-// Kick off a goroutine for each check automatically and store the results on the original check
-healthMonitor.Start(ctx)
+// Create your health checks.
+fooHealthCheckFunc := func(ctx context.Context) health.Status {
+    return health.Status{State: health.StateUp}
+}
+fooHealthCheck := health.NewCheck("foo", fooHealthCheckFunc)
+healthMonitor.Monitor(ctx, fooHealthCheck)
 
-// Retrieve the most recent result for all of the checks
+barHealthCheckFunc := func(ctx context.Context) health.Status {
+    statusDown := health.Status{State: health.StateDown}
+
+    // Create a HTTP request that terminates when the context is terminated.
+    req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://example.com", nil)
+    if err != nil {
+        return statusDown
+    }
+
+    // Execute the HTTP request.
+    client := http.Client{}
+    res, err := client.Do(req)
+    if err != nil {
+        return statusDown
+    }
+
+    if res.StatusCode == http.StatusOK {
+        return health.Status{State: health.StateUp}
+    } else {
+        return statusDown
+    }
+}
+barHealthCheck := health.NewCheck("bar", barCheckFunc)
+barHealthCheck.TTL = time.Second * 5
+barHealthCheck.Timeout = time.Second * 2
+healthMonitor.Monitor(ctx, barHealthCheck)
+
+// Retrieve the most recent cached result for all of the checks.
 healthStatus := healthMonitor.Check()
 ```
 
@@ -57,37 +75,6 @@ normal context behavior. go-health does not automatically kill the check executi
 to communicate that the configured timeout deadline has been exceeded. It is your responsibility to handle the context
 appropriately. For more information on context with deadline, see the
 [context documentation](https://pkg.go.dev/context#WithDeadline).
-
-
-```go
-exampleCheckFunc := func(ctx context.Context) health.Status {
-    statusDown := health.Status{State: health.StateDown}
-
-    req, err := http.NewRequestWithContext(ctx, "GET", "http://example.com", nil)
-    if err != nil {
-        return statusDown
-    }
-
-    client := http.Client{}
-    res, err := client.Do(req)
-    if err != nil {
-        return statusDown
-    }
-
-    if res.StatusCode == http.StatusOK {
-        return health.Status{State: health.StateUp}
-    } else {
-        return statusDown
-    }
-}
-exampleCheck := health.NewCheck("example", exampleCheckFunc)
-exampleCheck.Timeout = time.Millisecond * 400
-
-ctx := context.Background()
-
-healthMonitor := health.New([]*Check{exampleCheck})
-healthMonitor.Start(ctx)
-```
 
 ## Additional Information
 The return type of the health check function supports adding arbitrary information to the status. This could be

@@ -3,6 +3,7 @@ package health
 
 import (
 	"context"
+	"sync"
 	"time"
 )
 
@@ -12,11 +13,11 @@ type State int
 // States must be ordered from most degraded to least degraded here so that checks work their way up to the best state.
 
 const (
-	// StateDown represents unhealthy resource state.
+	// StateDown indicates unhealthy resource state.
 	StateDown State = iota
-	// StateWarn represents healthy resource state with some concerns.
+	// StateWarn indicates healthy resource state with some concerns.
 	StateWarn
-	// StateUp represents a completely healthy resource state withot any concerns.
+	// StateUp indicates a completely healthy resource state withot any concerns.
 	StateUp
 )
 
@@ -24,62 +25,53 @@ const (
 type MonitorStatus struct {
 	// State is a high level indicator for the health of all of the checks. It combines all of the check states
 	// together and bubbles up the most degraded. For example, if there are three checks and one has a state of
-	// health.StateDown, the overall state will be health.StateDown.
+	// StateDown, the overall state will be StateDown.
 	State State
 	// CheckStatuses contains all of the resource statuses. The map key is the name of the check.
 	CheckStatuses map[string]CheckStatus
 }
 
-// CheckStatus represents the health of the individual check.
+// CheckStatus indicates the health of an individual check and when that information was retrieved.
 type CheckStatus struct {
-	// Name of the check that produced the status.
-	Name string
 	// Status of the resource.
 	Status Status
-	// LastExecuted is the last time the check executed
-	LastExecuted time.Time
+	// Timestamp is the time the status was determined.
+	Timestamp time.Time
 }
 
-// Status is a wrapper for resource health state and any additional, arbitrary details that you may wish to include.
+// Status indicates resource health state and contains any additional, arbitrary details that may be relevant.
 type Status struct {
-	// State is a high level indicator for resource health
+	// State is a high level indicator for resource health.
 	State State
-	// Details is for any additional information about the resource that you want to expose
+	// Details is for any additional information about the resource that you want to expose.
 	Details interface{}
 }
 
 // Check represents a resource to be checked. The check function is used to determine resource health and is executed
-// on a cadence defined by the configured TTL. The result of the function execution is then cached on the check for
-// individual resource health status consumption if desired.
+// on a cadence defined by the configured TTL.
 type Check struct {
-	// Name of the check.
+	// Name of the check. Must be unique.
 	Name string
 	// Func is the resource health check function to be executed when determining health. This will be executed on a
 	// cadence as defined by the configured TTL. It is your responsibility to ensure that this function respects the
 	// provided context so that the logic may be terminated early. The provided context will be given a deadline if the
 	// check is configured with a timeout.
 	Func func(ctx context.Context) Status
-	// TTL is the time between executions of the health check function. After the function completes, the monitor will
-	// respect this value by waiting for this time to elapse before executing the function again and caching the
-	// results.
+	// TTL is the time that should be waited on between executions of the health check function.
 	TTL time.Duration
 	// Timeout is the max time that the check function may execute in before the provided context communicates
 	// termination.
 	Timeout time.Duration
-	// Status stores the last cached result of the health check function.
-	Status Status
-	// LastExecuted stores the last time the health check function was executed.
-	LastExecuted time.Time
 }
 
 // NewCheck creates a new health check with suitable default values.
 //
 // TTL is set to a duration of 1 second (1 second cache between executions of the check function).
 //
-// Timeout is left at its default zero-value, meaning that there is no deadline for completion. It is recommended that
-// you configure a timeout yourself but this is not required.
-func NewCheck(name string, checkFunc func(ctx context.Context) Status) *Check {
-	return &Check{
+// Timeout is left at its zero-value, meaning that there is no deadline for completion. It is recommended that you
+// configure a timeout yourself but this is not required.
+func NewCheck(name string, checkFunc func(ctx context.Context) Status) Check {
+	return Check{
 		Name: name,
 		Func: checkFunc,
 		TTL:  time.Second * 1,
@@ -88,84 +80,100 @@ func NewCheck(name string, checkFunc func(ctx context.Context) Status) *Check {
 
 // Monitor coordinates checks and executes their status functions to determine application health.
 type Monitor struct {
-	// checks contains all of the checks to monitor, the key being the name of the check.
-	checks map[string]*Check
+	// checkStatuses is a cache of all of the check function results, the key being the name of the check.
+	checkStatuses map[string]CheckStatus
+	// mtx is a read-write mutex used to coordinate reads and writes to the checkStatuses cache.
+	mtx sync.RWMutex
 }
 
-// New creates a health monitor that monitors the provided checks.
-func New(checks []*Check) *Monitor {
-	// Organize the checks into a map so that we can look up individual checks by name easily.
-	checkMap := make(map[string]*Check)
+// New creates a health monitor that monitors the provided checks. The return value will never be nil.
+func New() *Monitor {
+	// Cache the check status results in a map organized by check name as the key.
+	checkStatuses := make(map[string](CheckStatus))
 
-	for _, check := range checks {
-		checkMap[check.Name] = check
+	return &Monitor{checkStatuses: checkStatuses}
+}
+
+// setCheckStatus updates the check status cache in a thread-safe manner using the monitor mutex.
+func (mtr *Monitor) setCheckStatus(checkName string, checkStatus CheckStatus) {
+	mtr.mtx.Lock()
+	mtr.checkStatuses[checkName] = checkStatus
+	mtr.mtx.Unlock()
+}
+
+// Monitor starts a goroutine the executes the checks' check function and caches the result. This goroutine will wait
+// between polls as defined by check's TTL to avoid spamming the resource being evaluated. If a timeout is set on the
+// check, the context provided to Monitor will be wrapped in a deadline context and provided to the check function to
+// facilitate early termination.
+func (mtr *Monitor) Monitor(ctx context.Context, check Check) {
+	// Initialize the cache as StateDown
+	initialStatus := CheckStatus{
+		Status: Status{
+			State: StateDown,
+		},
 	}
+	mtr.setCheckStatus(check.Name, initialStatus)
 
-	return &Monitor{checks: checkMap}
-}
-
-// Start spins up a goroutine for each configured check that executes the check's check function and updates the
-// check's status. The goroutine will wait between polls as defined by the check's TTL to avoid spamming the resource
-// being evaluated. If a timeout is set on the check, the context provided to Start will be wrapped in a context with a
-// deadline and provided to the check function to facilitate early termination.
-func (mtr Monitor) Start(ctx context.Context) {
-	for _, check := range mtr.checks {
-		go func(check *Check) {
-			for {
-				select {
-				case <-ctx.Done():
-					return
-				default:
-					if check.Timeout > 0 {
-						executeCheckWithTimeout(ctx, check)
-					} else {
-						executeCheck(ctx, check)
-					}
-
-					time.Sleep(check.TTL)
+	// Start polling the check resource asynchronously
+	go func() {
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			default:
+				var checkStatus CheckStatus
+				if check.Timeout > 0 {
+					checkStatus = executeCheckWithTimeout(ctx, check)
+				} else {
+					checkStatus = executeCheck(ctx, check)
 				}
+
+				mtr.setCheckStatus(check.Name, checkStatus)
+				time.Sleep(check.TTL)
 			}
-		}(check)
-	}
+		}
+	}()
 }
 
-// Check returns the latest cached status for all of the configured checks. While the return value is a pointer, it
-// will never be nil.
-//
-// Individual check information can be pulled from the returned check statuses map, which uses the check's name as the
-// key.
-func (mtr Monitor) Check() *MonitorStatus {
-	checkStatuses := make(map[string]CheckStatus)
-
-	// Use StateUp as the initial state so that it may be overidden by the check if necessary.
+// Check returns the latest cached status for all of the configured checks.
+func (mtr *Monitor) Check() MonitorStatus {
+	// Use StateUp as the initial state so that it may be overidden by the checks if necessary.
 	// If checks are not configured, then we also default to StateUp.
 	state := StateUp
 
-	for _, check := range mtr.checks {
-		state = compareState(state, check.Status.State)
-		checkStatuses[check.Name] = CheckStatus{
-			Name:         check.Name,
-			Status:       check.Status,
-			LastExecuted: check.LastExecuted,
-		}
+	// Create a copy of the internal check status map so that we can return it without it being impacted by updates
+	// being performed by the monitor goroutines.
+	checkStatuses := make(map[string]CheckStatus)
+
+	mtr.mtx.RLock()
+
+	for checkName, checkStatus := range mtr.checkStatuses {
+		state = compareState(state, checkStatus.Status.State)
+		checkStatuses[checkName] = checkStatus
 	}
 
-	return &MonitorStatus{State: state, CheckStatuses: checkStatuses}
+	monitorStatus := MonitorStatus{State: state, CheckStatuses: checkStatuses}
+
+	mtr.mtx.RUnlock()
+
+	return monitorStatus
 }
 
 // executeCheck executes the check function using the provided context and updates the check information.
-func executeCheck(ctx context.Context, check *Check) {
-	check.Status = check.Func(ctx)
-	check.LastExecuted = time.Now()
+func executeCheck(ctx context.Context, check Check) CheckStatus {
+	return CheckStatus{
+		Status:    check.Func(ctx),
+		Timestamp: time.Now(),
+	}
 }
 
 // executeCheck executes the check function using the provided context, wrapped with a deadline set to the check's
 // configured timeout, and updates the check information.
-func executeCheckWithTimeout(ctx context.Context, check *Check) {
+func executeCheckWithTimeout(ctx context.Context, check Check) CheckStatus {
 	timeoutCtx, cancelTimeout := context.WithTimeout(ctx, check.Timeout)
 	defer cancelTimeout()
 
-	executeCheck(timeoutCtx, check)
+	return executeCheck(timeoutCtx, check)
 }
 
 // compareState compares states and returns the most degraded state of the two.
