@@ -34,7 +34,7 @@ func TestNew(t *testing.T) {
 
 	checks := []*Check{checkA, checkB}
 
-	healthChecker := Checker{Checks: checks}
+	healthChecker := NewChecker(checks)
 
 	assert.NotNil(t, healthChecker)
 
@@ -65,7 +65,7 @@ func TestCheck(t *testing.T) {
 	checks := []*Check{checkA, checkB}
 	ctx := context.Background()
 
-	healthChecker := Checker{Checks: checks}
+	healthChecker := NewChecker(checks)
 	healthChecker.Start(ctx)
 
 	// Wait for goroutines to kick in
@@ -101,7 +101,7 @@ func TestCheckInitiallyDown(t *testing.T) {
 	checks := []*Check{checkA, checkB}
 	ctx := context.Background()
 
-	healthChecker := Checker{Checks: checks}
+	healthChecker := NewChecker(checks)
 	healthChecker.Start(ctx)
 
 	status := healthChecker.Check()
@@ -159,7 +159,7 @@ func TestCheckTimeoutEndsExecution(t *testing.T) {
 	checks := []*Check{checkA, checkB}
 	ctx := context.Background()
 
-	healthChecker := Checker{Checks: checks}
+	healthChecker := NewChecker(checks)
 	healthChecker.Start(ctx)
 
 	// Wait for goroutines to kick in and timeout to be exceeded
@@ -201,7 +201,7 @@ func TestCheckExecutesOnTimer(t *testing.T) {
 	checks := []*Check{checkA, checkB}
 	ctx := context.Background()
 
-	healthChecker := Checker{Checks: checks}
+	healthChecker := NewChecker(checks)
 	healthChecker.Start(ctx)
 
 	// Wait for goroutines to kick in and some execution time to pass
@@ -236,7 +236,7 @@ func TestCheckCancelContextStopsCheck(t *testing.T) {
 	checks := []*Check{checkA, checkB}
 	ctx, cancel := context.WithCancel(context.Background())
 
-	healthChecker := Checker{Checks: checks}
+	healthChecker := NewChecker(checks)
 	healthChecker.Start(ctx)
 
 	// Wait for goroutines to kick in

@@ -24,7 +24,7 @@ healthChecks := []*health.Check{redisHealthCheck, cockroachDbHealthCheck}
 
 // Set up the health checker that will be executing these checks
 ctx := context.Background()
-healthChecker := health.Checker{Checks: checks}
+healthChecker := health.NewChecker(checks)
 
 // Kick off a goroutine for each check automatically and store the results on the original check
 healthChecker.Start(ctx)
@@ -80,12 +80,12 @@ exampleCheckFunc := func(ctx context.Context) health.Status {
         return statusDown
     }
 }
-exampleCheck := NewCheck("example", exampleCheckFunc)
+exampleCheck := health.NewCheck("example", exampleCheckFunc)
 exampleCheck.Timeout = time.Millisecond * 400
 
 ctx := context.Background()
 
-healthChecker := Checker{Checks: []*Check{exampleCheck}}
+healthChecker := health.NewChecker([]*Check{exampleCheck})
 healthChecker.Start(ctx)
 ```
 

@@ -26,7 +26,7 @@ type CheckerStatus struct {
 	// together and bubbles up the most degraded. For example, if there are three checks and one has a state of
 	// health.StateDown, the overall state will be health.StateDown.
 	State State
-	// CheckStatuses contains all of the resource statuses. The key of the map is the check name.
+	// CheckStatuses contains all of the resource statuses. The map key is the name of the check.
 	CheckStatuses map[string]CheckStatus
 }
 
@@ -91,8 +91,20 @@ func NewCheck(name string, checkFunc func(ctx context.Context) Status) *Check {
 
 // Checker coordinates checks and executes their status functions to determine application health.
 type Checker struct {
-	// Checks contains all of the resources to monitor.
-	Checks []*Check
+	// checks contains all of the checks to monitor, the key being the name of the check.
+	checks map[string]*Check
+}
+
+// NewChecker creates a health checker that monitors the provided checks.
+func NewChecker(checks []*Check) *Checker {
+	// Organize the checks into a map so that we can look up individual checks by name easily.
+	checkMap := make(map[string]*Check)
+
+	for _, check := range checks {
+		checkMap[check.Name] = check
+	}
+
+	return &Checker{checks: checkMap}
 }
 
 // Start spins up a goroutine for each configured check that executes the check's check function and updates the
@@ -100,7 +112,7 @@ type Checker struct {
 // being evaluated. If a timeout is set on the check, the context provided to Start will be wrapped in a context with a
 // deadline and provided to the check function to facilitate early termination.
 func (chckr Checker) Start(ctx context.Context) {
-	for _, check := range chckr.Checks {
+	for _, check := range chckr.checks {
 		go func(check *Check) {
 			for {
 				select {
@@ -132,7 +144,7 @@ func (chckr Checker) Check() *CheckerStatus {
 	// If checks are not configured, then we also default to StateUp.
 	state := StateUp
 
-	for _, check := range chckr.Checks {
+	for _, check := range chckr.checks {
 		state = compareState(state, check.Status.State)
 		checkStatuses[check.Name] = CheckStatus{
 			Name:         check.Name,
