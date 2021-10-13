@@ -20,8 +20,8 @@ const (
 	StateUp
 )
 
-// CheckerStatus represents the health of the all of the resources being checked.
-type CheckerStatus struct {
+// MonitorStatus represents the health of the all of the resources being checked.
+type MonitorStatus struct {
 	// State is a high level indicator for the health of all of the checks. It combines all of the check states
 	// together and bubbles up the most degraded. For example, if there are three checks and one has a state of
 	// health.StateDown, the overall state will be health.StateDown.
@@ -59,17 +59,14 @@ type Check struct {
 	// provided context so that the logic may be terminated early. The provided context will be given a deadline if the
 	// check is configured with a timeout.
 	Func func(ctx context.Context) Status
-	// TTL is the time between executions of the health check function. After the function completes, the checker will
+	// TTL is the time between executions of the health check function. After the function completes, the monitor will
 	// respect this value by waiting for this time to elapse before executing the function again and caching the
 	// results.
 	TTL time.Duration
 	// Timeout is the max time that the check function may execute in before the provided context communicates
 	// termination.
 	Timeout time.Duration
-	// Status stores the last cached result of the health check function. Since the package uses pointers, this
-	// original check can be referenced for the latest health information if desired without calling Check() on the
-	// checker. This has the advantage of being able to get only the health information you need without any bubbling
-	// up of status information by the other checks.
+	// Status stores the last cached result of the health check function.
 	Status Status
 	// LastExecuted stores the last time the health check function was executed.
 	LastExecuted time.Time
@@ -89,14 +86,14 @@ func NewCheck(name string, checkFunc func(ctx context.Context) Status) *Check {
 	}
 }
 
-// Checker coordinates checks and executes their status functions to determine application health.
-type Checker struct {
+// Monitor coordinates checks and executes their status functions to determine application health.
+type Monitor struct {
 	// checks contains all of the checks to monitor, the key being the name of the check.
 	checks map[string]*Check
 }
 
-// NewChecker creates a health checker that monitors the provided checks.
-func NewChecker(checks []*Check) *Checker {
+// New creates a health monitor that monitors the provided checks.
+func New(checks []*Check) *Monitor {
 	// Organize the checks into a map so that we can look up individual checks by name easily.
 	checkMap := make(map[string]*Check)
 
@@ -104,15 +101,15 @@ func NewChecker(checks []*Check) *Checker {
 		checkMap[check.Name] = check
 	}
 
-	return &Checker{checks: checkMap}
+	return &Monitor{checks: checkMap}
 }
 
 // Start spins up a goroutine for each configured check that executes the check's check function and updates the
 // check's status. The goroutine will wait between polls as defined by the check's TTL to avoid spamming the resource
 // being evaluated. If a timeout is set on the check, the context provided to Start will be wrapped in a context with a
 // deadline and provided to the check function to facilitate early termination.
-func (chckr Checker) Start(ctx context.Context) {
-	for _, check := range chckr.checks {
+func (mtr Monitor) Start(ctx context.Context) {
+	for _, check := range mtr.checks {
 		go func(check *Check) {
 			for {
 				select {
@@ -137,14 +134,14 @@ func (chckr Checker) Start(ctx context.Context) {
 //
 // Individual check information can be pulled from the returned check statuses map, which uses the check's name as the
 // key.
-func (chckr Checker) Check() *CheckerStatus {
+func (mtr Monitor) Check() *MonitorStatus {
 	checkStatuses := make(map[string]CheckStatus)
 
 	// Use StateUp as the initial state so that it may be overidden by the check if necessary.
 	// If checks are not configured, then we also default to StateUp.
 	state := StateUp
 
-	for _, check := range chckr.checks {
+	for _, check := range mtr.checks {
 		state = compareState(state, check.Status.State)
 		checkStatuses[check.Name] = CheckStatus{
 			Name:         check.Name,
@@ -153,7 +150,7 @@ func (chckr Checker) Check() *CheckerStatus {
 		}
 	}
 
-	return &CheckerStatus{State: state, CheckStatuses: checkStatuses}
+	return &MonitorStatus{State: state, CheckStatuses: checkStatuses}
 }
 
 // executeCheck executes the check function using the provided context and updates the check information.

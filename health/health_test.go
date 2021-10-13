@@ -34,9 +34,9 @@ func TestNew(t *testing.T) {
 
 	checks := []*Check{checkA, checkB}
 
-	healthChecker := NewChecker(checks)
+	healthMonitor := New(checks)
 
-	assert.NotNil(t, healthChecker)
+	assert.NotNil(t, healthMonitor)
 
 	assert.Equal(t, time.Second, checkA.TTL, "Check A TTL was not modified")
 	assert.Equal(t, time.Duration(0), checkA.Timeout, "Check A timeout was incorrectly modified")
@@ -65,13 +65,13 @@ func TestCheck(t *testing.T) {
 	checks := []*Check{checkA, checkB}
 	ctx := context.Background()
 
-	healthChecker := NewChecker(checks)
-	healthChecker.Start(ctx)
+	healthMonitor := New(checks)
+	healthMonitor.Start(ctx)
 
 	// Wait for goroutines to kick in
 	time.Sleep(time.Millisecond * 100)
 
-	status := healthChecker.Check()
+	status := healthMonitor.Check()
 
 	assert.Equal(t, StateWarn, status.State)
 	assert.Equal(t, 2, len(status.CheckStatuses))
@@ -101,10 +101,10 @@ func TestCheckInitiallyDown(t *testing.T) {
 	checks := []*Check{checkA, checkB}
 	ctx := context.Background()
 
-	healthChecker := NewChecker(checks)
-	healthChecker.Start(ctx)
+	healthMonitor := New(checks)
+	healthMonitor.Start(ctx)
 
-	status := healthChecker.Check()
+	status := healthMonitor.Check()
 
 	assert.Equal(t, StateDown, status.State)
 	assert.Equal(t, 2, len(status.CheckStatuses))
@@ -159,13 +159,13 @@ func TestCheckTimeoutEndsExecution(t *testing.T) {
 	checks := []*Check{checkA, checkB}
 	ctx := context.Background()
 
-	healthChecker := NewChecker(checks)
-	healthChecker.Start(ctx)
+	healthMonitor := New(checks)
+	healthMonitor.Start(ctx)
 
 	// Wait for goroutines to kick in and timeout to be exceeded
 	time.Sleep(time.Millisecond * 400)
 
-	status := healthChecker.Check()
+	status := healthMonitor.Check()
 
 	assert.Equal(t, StateWarn, status.State)
 	assert.Equal(t, 2, len(status.CheckStatuses))
@@ -201,13 +201,13 @@ func TestCheckExecutesOnTimer(t *testing.T) {
 	checks := []*Check{checkA, checkB}
 	ctx := context.Background()
 
-	healthChecker := NewChecker(checks)
-	healthChecker.Start(ctx)
+	healthMonitor := New(checks)
+	healthMonitor.Start(ctx)
 
 	// Wait for goroutines to kick in and some execution time to pass
 	time.Sleep(time.Millisecond * 200)
 
-	healthChecker.Check()
+	healthMonitor.Check()
 
 	assert.GreaterOrEqual(t, checkACounter, 2, "Check A did not execute often enough")
 	assert.LessOrEqual(t, checkACounter, 3, "Check A executed too many times")
@@ -236,8 +236,8 @@ func TestCheckCancelContextStopsCheck(t *testing.T) {
 	checks := []*Check{checkA, checkB}
 	ctx, cancel := context.WithCancel(context.Background())
 
-	healthChecker := NewChecker(checks)
-	healthChecker.Start(ctx)
+	healthMonitor := New(checks)
+	healthMonitor.Start(ctx)
 
 	// Wait for goroutines to kick in
 	time.Sleep(time.Millisecond * 100)

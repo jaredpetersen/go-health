@@ -22,15 +22,15 @@ cockroachDbHealthCheck.Timeout = time.Second * 2
 // Add the checks to a slice for consumption
 healthChecks := []*health.Check{redisHealthCheck, cockroachDbHealthCheck}
 
-// Set up the health checker that will be executing these checks
+// Set up the health monitor that will be executing these checks
 ctx := context.Background()
-healthChecker := health.NewChecker(checks)
+healthMonitor := health.New(checks)
 
 // Kick off a goroutine for each check automatically and store the results on the original check
-healthChecker.Start(ctx)
+healthMonitor.Start(ctx)
 
 // Retrieve the most recent result for all of the checks
-healthCheckerStatus := healthChecker.Check()
+healthStatus := healthMonitor.Check()
 ```
 
 ## Asynchronous Checking and Caching
@@ -85,8 +85,8 @@ exampleCheck.Timeout = time.Millisecond * 400
 
 ctx := context.Background()
 
-healthChecker := health.NewChecker([]*Check{exampleCheck})
-healthChecker.Start(ctx)
+healthMonitor := health.New([]*Check{exampleCheck})
+healthMonitor.Start(ctx)
 ```
 
 ## Additional Information
