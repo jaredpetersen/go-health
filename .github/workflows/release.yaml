@@ -1,9 +1,14 @@
-name: Continuous Integration
-on: pull_request
+name: Release
+on:
+  push:
+    branches:
+    - main
 jobs:
-  ci:
+  release:
     runs-on: ubuntu-latest
     steps:
+    - name: Checkout code
+      uses: actions/checkout@v2
     - name: Get Changelog
       id: changelog_reader
       uses: mindsers/changelog-reader-action@v2
