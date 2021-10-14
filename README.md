@@ -1,5 +1,6 @@
 # go-health
 #### 🏥 Barebones, detailed health check library for Go
+[![Build](https://github.com/jaredpetersen/go-health/actions/workflows/build.yaml/badge.svg)](https://github.com/jaredpetersen/go-health/actions/workflows/build.yaml)
 [![Go Reference](https://pkg.go.dev/badge/github.com/jaredpetersen/go-health/health.svg)](https://pkg.go.dev/github.com/jaredpetersen/go-health/health)
 
 go-health does away with the kitchen sink mentality of other health check libraries. You aren't getting a default HTTP
