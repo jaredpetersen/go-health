@@ -47,16 +47,19 @@ type Status struct {
 	Details interface{}
 }
 
+// Func is a function used to determine resource health.
+type CheckFunc func(ctx context.Context) Status
+
 // Check represents a resource to be checked. The check function is used to determine resource health and is executed
 // on a cadence defined by the configured TTL.
 type Check struct {
 	// Name of the check. Must be unique.
 	Name string
-	// Func is the resource health check function to be executed when determining health. This will be executed on a
-	// cadence as defined by the configured TTL. It is your responsibility to ensure that this function respects the
-	// provided context so that the logic may be terminated early. The provided context will be given a deadline if the
-	// check is configured with a timeout.
-	Func func(ctx context.Context) Status
+	// CheckFunc is a function used to determine resource health. This will be executed on a cadence as defined by the
+	// configured TTL. It is your responsibility to ensure that this function respects the provided context so that the
+	// logic may be terminated early. The provided context will be given a deadline if the check is configured with a
+	// timeout.
+	Func CheckFunc
 	// TTL is the time that should be waited on between executions of the health check function.
 	TTL time.Duration
 	// Timeout is the max time that the check function may execute in before the provided context communicates
@@ -70,7 +73,7 @@ type Check struct {
 //
 // Timeout is left at its zero-value, meaning that there is no deadline for completion. It is recommended that you
 // configure a timeout yourself but this is not required.
-func NewCheck(name string, checkFunc func(ctx context.Context) Status) Check {
+func NewCheck(name string, checkFunc CheckFunc) Check {
 	return Check{
 		Name: name,
 		Func: checkFunc,

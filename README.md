@@ -7,48 +7,32 @@ resources asynchronously with built-in caching and timeouts. Only what you absol
 
 ## Quickstart
 ```go
-// Create the health monitor that will be polling the resources.
-healthMonitor := health.New()
+    // Create the health monitor that will be polling the resources.
+	healthMonitor := health.New()
 
-// Prepare the context -- this can be used to stop async monitoring.
-ctx := context.Background()
+	// Prepare the context -- this can be used to stop async monitoring.
+	ctx := context.Background()
 
-// Create your health checks.
-fooHealthCheckFunc := func(ctx context.Context) health.Status {
-    return health.Status{State: health.StateUp}
-}
-fooHealthCheck := health.NewCheck("foo", fooHealthCheckFunc)
-healthMonitor.Monitor(ctx, fooHealthCheck)
+	// Create your health checks.
+	fooHealthCheckFunc := func(ctx context.Context) health.Status {
+		return health.Status{State: health.StateDown}
+	}
+	fooHealthCheck := health.NewCheck("foo", fooHealthCheckFunc)
+	fooHealthCheck.Timeout = time.Second * 2
+	healthMonitor.Monitor(ctx, fooHealthCheck)
 
-barHealthCheckFunc := func(ctx context.Context) health.Status {
-    statusDown := health.Status{State: health.StateDown}
+	barHealthCheckFunc := func(ctx context.Context) health.Status {
+		return health.Status{State: health.StateUp}
+	}
+	barHealthCheck := health.NewCheck("bar", barHealthCheckFunc)
+	barHealthCheck.Timeout = time.Second * 2
+	healthMonitor.Monitor(ctx, barHealthCheck)
 
-    // Create a HTTP request that terminates when the context is terminated.
-    req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://example.com", nil)
-    if err != nil {
-        return statusDown
-    }
+	// Wait for goroutines to kick off
+	time.Sleep(time.Millisecond * 100)
 
-    // Execute the HTTP request.
-    client := http.Client{}
-    res, err := client.Do(req)
-    if err != nil {
-        return statusDown
-    }
-
-    if res.StatusCode == http.StatusOK {
-        return health.Status{State: health.StateUp}
-    } else {
-        return statusDown
-    }
-}
-barHealthCheck := health.NewCheck("bar", barCheckFunc)
-barHealthCheck.TTL = time.Second * 5
-barHealthCheck.Timeout = time.Second * 2
-healthMonitor.Monitor(ctx, barHealthCheck)
-
-// Retrieve the most recent cached result for all of the checks.
-healthStatus := healthMonitor.Check()
+	// Retrieve the most recent cached result for all of the checks.
+	healthMonitor.Check()
 ```
 
 ## Asynchronous Checking and Caching
