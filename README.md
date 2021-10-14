@@ -14,7 +14,7 @@ Install the package:
 go get github.com/jaredpetersen/go-health/health@latest
 ```
 
-Usage:
+Example:
 ```go
 // Create the health monitor that will be polling the resources.
 healthMonitor := health.New()

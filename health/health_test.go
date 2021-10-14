@@ -416,7 +416,7 @@ func Example() {
 	healthMonitor.Check()
 }
 
-func Example_second() {
+func Example_hhtp() {
 	// Create the health monitor that will be polling the resources.
 	healthMonitor := health.New()
 
