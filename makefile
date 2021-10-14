@@ -1,17 +1,19 @@
 GO_CMD=go
-GO_BUILD=$(GO_CMD) build
-GO_FMT=gofmt
-GO_TEST=$(GO_CMD) test
-GO_COVER=$(GO_CMD) tool cover
-GO_CLEAN=$(GO_CMD) clean
+GOFMT_CMD=gofmt
+STATICCHECK_CMD=staticcheck
 
 all: build test
+install:
+	$(GO_CMD) install honnef.co/go/tools/cmd/staticcheck@v0.2.1
 build:
-	$(GO_BUILD) ./...
+	$(GO_CMD) build ./...
 format:
-	$(GO_FMT) -w -s .
+	$(GOFMT_CMD) -w -s .
+check:
+	$(GO_CMD) vet ./...
+	$(STATICCHECK_CMD) ./...
 test:
-	$(GO_TEST) -race -coverprofile cover.out ./...
-	$(GO_COVER) -html=cover.out -o cover.html
+	$(GO_CMD) test -race -coverprofile cover.out ./...
+	$(GO_CMD) tool cover -html=cover.out -o cover.html
 clean:
-	$(GO_CLEAN)
+	$(GO_CMD) clean
