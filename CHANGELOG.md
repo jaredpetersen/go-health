@@ -10,8 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Static code analysis with [staticcheck](https://staticcheck.io/).
 
 ### Changed
-- `Monitor()` function now takes variadic `Check` arguments, allowing you to pass multiple checks in at once. This does
-not break backwards compatability.
+- `Monitor()` function on `Monitor` now takes variadic `Check` arguments, allowing you to pass multiple checks in at
+once. This does not break backwards compatability.
 
 ### Fixed
 - README example that didn't compile.
