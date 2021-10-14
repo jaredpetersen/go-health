@@ -1,0 +1,20 @@
+name: Continuous Integration
+on: pull_request
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Get Changelog
+      id: changelog_reader
+      uses: mindsers/changelog-reader-action@v2
+    - name: Create Release
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: v${{ steps.changelog_reader.outputs.version }}
+        release_name: v${{ steps.changelog_reader.outputs.version }}
+        body: ${{ steps.changelog_reader.outputs.changes }}
+        draft: false
+        prerelease: false
