@@ -65,7 +65,7 @@ The return type of the health check function supports adding arbitrary informati
 information like active database connections, response time for an HTTP request, etc.
 
 ```go
-type CustomHTTPStatusDetails struct {
+type HTTPHealthCheckDetails struct {
     ResponseTime time.Duration
 }
 ```
@@ -73,5 +73,6 @@ type CustomHTTPStatusDetails struct {
 ```go
 return health.Status{
     State:   health.StateUp,
-    Details: CustomHTTPStatusDetails{ResponseTime: time.Millisecond * 352},
+    Details: HTTPHealthCheckDetails{ResponseTime: responseTime},
 }
+```
