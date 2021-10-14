@@ -22,9 +22,3 @@ jobs:
       run: make build
     - name: Test & generate code coverage
       run: make test
-    - name: Upload code coverage
-      uses: codecov/codecov-action@v2
-      with:
-        files: ./cover.out
-        fail_ci_if_error: true
-        verbose: true
