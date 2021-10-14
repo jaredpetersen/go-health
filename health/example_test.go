@@ -37,7 +37,7 @@ func Example() {
 	healthMonitor.Check()
 }
 
-func Example_hhtp() {
+func Example_http() {
 	// Create the health monitor that will be polling the resources.
 	healthMonitor := health.New()
 
