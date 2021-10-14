@@ -5,7 +5,7 @@ on:
     - main
   pull_request:
 jobs:
-  ci:
+  build:
     runs-on: ubuntu-latest
     steps:
     - name: Setup Go environment
