@@ -14,6 +14,7 @@ check:
 	$(STATICCHECK_CMD) ./...
 test:
 	$(GO_CMD) test -race -covermode=atomic -coverprofile cover.out ./...
+coverreport:
 	$(GO_CMD) tool cover -html=cover.out -o cover.html
 clean:
 	$(GO_CMD) clean
