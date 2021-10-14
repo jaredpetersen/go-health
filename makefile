@@ -4,7 +4,7 @@ STATICCHECK_CMD=staticcheck
 
 all: build test
 install:
-	$(GO_CMD) install honnef.co/go/tools/cmd/staticcheck@v0.2.1
+	$(GO_CMD) install honnef.co/go/tools/cmd/staticcheck@latest
 build:
 	$(GO_CMD) build ./...
 format:
