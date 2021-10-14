@@ -27,7 +27,7 @@ jobs:
     - name: Evaluate code coverage
       run: |
         coverage=$(go tool cover -func cover.out | grep total | awk '{print substr($3, 1, length($3)-1)}')
-        if [[ $(bc -l <<< "$coverage > 100") -eq 1 ]]; then
+        if [[ $(bc -l <<< "$coverage > 90") -eq 1 ]]; then
           echo "Code coverage: PASS"
           exit 0
         else
