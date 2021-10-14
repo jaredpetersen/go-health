@@ -214,6 +214,52 @@ func TestCheckMultiple(t *testing.T) {
 	assert.NotEqual(t, 0, checkBStatus.Timestamp, "Check status timestamp was not updated")
 }
 
+func TestCheckMultipleVariadicMonitor(t *testing.T) {
+	type CustomStatusDetails struct {
+		ConnectionCount int
+	}
+
+	healthMonitor := health.New()
+	ctx := context.Background()
+
+	checkAHealthFunc := func(ctx context.Context) health.Status {
+		return health.Status{State: health.StateUp}
+	}
+	checkA := health.NewCheck("checkA", checkAHealthFunc)
+
+	checkBHealthFunc := func(ctx context.Context) health.Status {
+		return health.Status{
+			State:   health.StateWarn,
+			Details: CustomStatusDetails{ConnectionCount: 104},
+		}
+	}
+	checkB := health.NewCheck("checkB", checkBHealthFunc)
+
+	// Use variadic argument for monitor
+	healthMonitor.Monitor(ctx, checkA, checkB)
+
+	// Wait for goroutines to kick in
+	time.Sleep(time.Millisecond * 100)
+
+	status := healthMonitor.Check()
+
+	assert.Equal(t, health.StateWarn, status.State)
+	assert.Equal(t, 2, len(status.CheckStatuses))
+
+	checkAStatus := status.CheckStatuses[checkA.Name]
+	expectedCheckAStatus := health.Status{State: health.StateUp}
+	assert.Equal(t, expectedCheckAStatus, checkAStatus.Status)
+	assert.NotEqual(t, 0, checkAStatus.Timestamp, "Check status timestamp was not updated")
+
+	checkBStatus := status.CheckStatuses[checkB.Name]
+	expectedCheckBStatus := health.Status{
+		State:   health.StateWarn,
+		Details: CustomStatusDetails{ConnectionCount: 104},
+	}
+	assert.Equal(t, expectedCheckBStatus, checkBStatus.Status)
+	assert.NotEqual(t, 0, checkBStatus.Timestamp, "Check status timestamp was not updated")
+}
+
 func TestCheckTimeoutEndsExecution(t *testing.T) {
 	healthMonitor := health.New()
 	ctx := context.Background()

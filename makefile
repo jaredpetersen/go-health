@@ -2,7 +2,7 @@ GO_CMD=go
 GOFMT_CMD=gofmt
 STATICCHECK_CMD=staticcheck
 
-all: build test
+all: build check test
 install:
 	$(GO_CMD) install honnef.co/go/tools/cmd/staticcheck@latest
 build:

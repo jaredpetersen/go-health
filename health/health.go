@@ -104,38 +104,40 @@ func (mtr *Monitor) setCheckStatus(checkName string, checkStatus CheckStatus) {
 	mtr.mtx.Unlock()
 }
 
-// Monitor starts a goroutine the executes the checks' check function and caches the result. This goroutine will wait
-// between polls as defined by check's TTL to avoid spamming the resource being evaluated. If a timeout is set on the
-// check, the context provided to Monitor will be wrapped in a deadline context and provided to the check function to
-// facilitate early termination.
-func (mtr *Monitor) Monitor(ctx context.Context, check Check) {
-	// Initialize the cache as StateDown
-	initialStatus := CheckStatus{
-		Status: Status{
-			State: StateDown,
-		},
-	}
-	mtr.setCheckStatus(check.Name, initialStatus)
-
-	// Start polling the check resource asynchronously
-	go func() {
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			default:
-				var checkStatus CheckStatus
-				if check.Timeout > 0 {
-					checkStatus = executeCheckWithTimeout(ctx, check)
-				} else {
-					checkStatus = executeCheck(ctx, check)
-				}
-
-				mtr.setCheckStatus(check.Name, checkStatus)
-				time.Sleep(check.TTL)
-			}
+// Monitor starts a goroutine for each check the executes the check's function and caches the result. This goroutine
+// will wait between polls as defined by check's TTL to avoid spamming the resource being evaluated. If a timeout is
+// set on the check, the context provided to Monitor will be wrapped in a deadline context and provided to the check
+// function to facilitate early termination.
+func (mtr *Monitor) Monitor(ctx context.Context, checks ...Check) {
+	for _, check := range checks {
+		// Initialize the cache as StateDown
+		initialStatus := CheckStatus{
+			Status: Status{
+				State: StateDown,
+			},
 		}
-	}()
+		mtr.setCheckStatus(check.Name, initialStatus)
+
+		// Start polling the check resource asynchronously
+		go func(check Check) {
+			for {
+				select {
+				case <-ctx.Done():
+					return
+				default:
+					var checkStatus CheckStatus
+					if check.Timeout > 0 {
+						checkStatus = executeCheckWithTimeout(ctx, check)
+					} else {
+						checkStatus = executeCheck(ctx, check)
+					}
+
+					mtr.setCheckStatus(check.Name, checkStatus)
+					time.Sleep(check.TTL)
+				}
+			}
+		}(check)
+	}
 }
 
 // Check returns the latest cached status for all of the configured checks.
