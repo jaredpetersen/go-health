@@ -1,11 +1,20 @@
 # go-health
 #### 🏥 Barebones, detailed health check library for Go
+[![Build](https://github.com/jaredpetersen/go-health/actions/workflows/build.yaml/badge.svg)](https://github.com/jaredpetersen/go-health/actions/workflows/build.yaml)
+[![Go Reference](https://pkg.go.dev/badge/github.com/jaredpetersen/go-health/health.svg)](https://pkg.go.dev/github.com/jaredpetersen/go-health/health)
+
 go-health does away with the kitchen sink mentality of other health check libraries. You aren't getting a default HTTP
 handler out of the box that is router dependent or has opinions about the shape or format of the health data being
 published. You aren't getting pre-built health checks. But you do get a simple system for checking the health of
 resources asynchronously with built-in caching and timeouts. Only what you absolutely need, and nothing else.
 
 ## Quickstart
+Install the package:
+```sh
+go get github.com/jaredpetersen/go-health/health@latest
+```
+
+Example:
 ```go
 // Create the health monitor that will be polling the resources.
 healthMonitor := health.New()
@@ -15,40 +24,24 @@ ctx := context.Background()
 
 // Create your health checks.
 fooHealthCheckFunc := func(ctx context.Context) health.Status {
-    return health.Status{State: health.StateUp}
+    return health.Status{State: health.StateDown}
 }
 fooHealthCheck := health.NewCheck("foo", fooHealthCheckFunc)
+fooHealthCheck.Timeout = time.Second * 2
 healthMonitor.Monitor(ctx, fooHealthCheck)
 
 barHealthCheckFunc := func(ctx context.Context) health.Status {
-    statusDown := health.Status{State: health.StateDown}
-
-    // Create a HTTP request that terminates when the context is terminated.
-    req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://example.com", nil)
-    if err != nil {
-        return statusDown
-    }
-
-    // Execute the HTTP request.
-    client := http.Client{}
-    res, err := client.Do(req)
-    if err != nil {
-        return statusDown
-    }
-
-    if res.StatusCode == http.StatusOK {
-        return health.Status{State: health.StateUp}
-    } else {
-        return statusDown
-    }
+    return health.Status{State: health.StateUp}
 }
-barHealthCheck := health.NewCheck("bar", barCheckFunc)
-barHealthCheck.TTL = time.Second * 5
+barHealthCheck := health.NewCheck("bar", barHealthCheckFunc)
 barHealthCheck.Timeout = time.Second * 2
 healthMonitor.Monitor(ctx, barHealthCheck)
 
+// Wait for goroutines to kick off
+time.Sleep(time.Millisecond * 100)
+
 // Retrieve the most recent cached result for all of the checks.
-healthStatus := healthMonitor.Check()
+healthMonitor.Check()
 ```
 
 ## Asynchronous Checking and Caching
@@ -81,7 +74,7 @@ The return type of the health check function supports adding arbitrary informati
 information like active database connections, response time for an HTTP request, etc.
 
 ```go
-type CustomHTTPStatusDetails struct {
+type HTTPHealthCheckDetails struct {
     ResponseTime time.Duration
 }
 ```
@@ -89,5 +82,6 @@ type CustomHTTPStatusDetails struct {
 ```go
 return health.Status{
     State:   health.StateUp,
-    Details: CustomHTTPStatusDetails{ResponseTime: time.Millisecond * 352},
+    Details: HTTPHealthCheckDetails{ResponseTime: responseTime},
 }
+```

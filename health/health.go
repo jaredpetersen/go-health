@@ -47,16 +47,18 @@ type Status struct {
 	Details interface{}
 }
 
+// CheckFunc is a function used to determine resource health.
+type CheckFunc func(ctx context.Context) Status
+
 // Check represents a resource to be checked. The check function is used to determine resource health and is executed
 // on a cadence defined by the configured TTL.
 type Check struct {
 	// Name of the check. Must be unique.
 	Name string
-	// Func is the resource health check function to be executed when determining health. This will be executed on a
-	// cadence as defined by the configured TTL. It is your responsibility to ensure that this function respects the
-	// provided context so that the logic may be terminated early. The provided context will be given a deadline if the
-	// check is configured with a timeout.
-	Func func(ctx context.Context) Status
+	// Func is used to determine resource health. This will be executed on a cadence as defined by the configured TTL.
+	// It is your responsibility to ensure that this function respects the provided context so that the logic may be
+	// terminated early. The provided context will be given a deadline if the check is configured with a timeout.
+	Func CheckFunc
 	// TTL is the time that should be waited on between executions of the health check function.
 	TTL time.Duration
 	// Timeout is the max time that the check function may execute in before the provided context communicates
@@ -70,7 +72,7 @@ type Check struct {
 //
 // Timeout is left at its zero-value, meaning that there is no deadline for completion. It is recommended that you
 // configure a timeout yourself but this is not required.
-func NewCheck(name string, checkFunc func(ctx context.Context) Status) Check {
+func NewCheck(name string, checkFunc CheckFunc) Check {
 	return Check{
 		Name: name,
 		Func: checkFunc,
@@ -101,38 +103,40 @@ func (mtr *Monitor) setCheckStatus(checkName string, checkStatus CheckStatus) {
 	mtr.mtx.Unlock()
 }
 
-// Monitor starts a goroutine the executes the checks' check function and caches the result. This goroutine will wait
-// between polls as defined by check's TTL to avoid spamming the resource being evaluated. If a timeout is set on the
-// check, the context provided to Monitor will be wrapped in a deadline context and provided to the check function to
-// facilitate early termination.
-func (mtr *Monitor) Monitor(ctx context.Context, check Check) {
-	// Initialize the cache as StateDown
-	initialStatus := CheckStatus{
-		Status: Status{
-			State: StateDown,
-		},
-	}
-	mtr.setCheckStatus(check.Name, initialStatus)
-
-	// Start polling the check resource asynchronously
-	go func() {
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			default:
-				var checkStatus CheckStatus
-				if check.Timeout > 0 {
-					checkStatus = executeCheckWithTimeout(ctx, check)
-				} else {
-					checkStatus = executeCheck(ctx, check)
-				}
-
-				mtr.setCheckStatus(check.Name, checkStatus)
-				time.Sleep(check.TTL)
-			}
+// Monitor starts a goroutine for each check the executes the check's function and caches the result. This goroutine
+// will wait between polls as defined by check's TTL to avoid spamming the resource being evaluated. If a timeout is
+// set on the check, the context provided to Monitor will be wrapped in a deadline context and provided to the check
+// function to facilitate early termination.
+func (mtr *Monitor) Monitor(ctx context.Context, checks ...Check) {
+	for _, check := range checks {
+		// Initialize the cache as StateDown
+		initialStatus := CheckStatus{
+			Status: Status{
+				State: StateDown,
+			},
 		}
-	}()
+		mtr.setCheckStatus(check.Name, initialStatus)
+
+		// Start polling the check resource asynchronously
+		go func(check Check) {
+			for {
+				select {
+				case <-ctx.Done():
+					return
+				default:
+					var checkStatus CheckStatus
+					if check.Timeout > 0 {
+						checkStatus = executeCheckWithTimeout(ctx, check)
+					} else {
+						checkStatus = executeCheck(ctx, check)
+					}
+
+					mtr.setCheckStatus(check.Name, checkStatus)
+					time.Sleep(check.TTL)
+				}
+			}
+		}(check)
+	}
 }
 
 // Check returns the latest cached status for all of the configured checks.

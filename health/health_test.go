@@ -1,4 +1,4 @@
-package health
+package health_test
 
 import (
 	"context"
@@ -6,14 +6,15 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jaredpetersen/go-health/health"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestNewCheck(t *testing.T) {
-	checkFunc := func(ctx context.Context) Status {
-		return Status{State: StateUp}
+	checkFunc := func(ctx context.Context) health.Status {
+		return health.Status{State: health.StateUp}
 	}
-	check := NewCheck("mycheck", checkFunc)
+	check := health.NewCheck("mycheck", checkFunc)
 
 	assert.Equal(t, "mycheck", check.Name)
 	assert.Equal(t, time.Second, check.TTL)
@@ -21,43 +22,54 @@ func TestNewCheck(t *testing.T) {
 }
 
 func TestNew(t *testing.T) {
-	healthMonitor := New()
+	healthMonitor := health.New()
 
 	assert.NotNil(t, healthMonitor)
 }
 
 func TestCheckEmpty(t *testing.T) {
-	healthMonitor := New()
-	healthStatus := healthMonitor.Check()
+	healthMonitor := health.New()
+	status := healthMonitor.Check()
 
-	assert.Equal(t, MonitorStatus{State: StateUp, CheckStatuses: make(map[string]CheckStatus)}, healthStatus)
+	expectedStatus := health.MonitorStatus{
+		State:         health.StateUp,
+		CheckStatuses: make(map[string]health.CheckStatus),
+	}
+
+	assert.Equal(t, expectedStatus, status)
 }
 
 func TestCheckInitiallyDown(t *testing.T) {
-	healthMonitor := New()
+	healthMonitor := health.New()
 	ctx := context.Background()
 
-	checkHealthFunc := func(ctx context.Context) Status {
-		return Status{State: StateUp}
+	checkHealthFunc := func(ctx context.Context) health.Status {
+		return health.Status{State: health.StateUp}
 	}
-	check := NewCheck("check", checkHealthFunc)
+	check := health.NewCheck("check", checkHealthFunc)
 	healthMonitor.Monitor(ctx, check)
 
 	status := healthMonitor.Check()
 
-	assert.Equal(t, StateDown, status.State)
+	expectedStatus := health.CheckStatus{
+		Status: health.Status{
+			State: health.StateDown,
+		},
+	}
+
+	assert.Equal(t, health.StateDown, status.State)
 	assert.Equal(t, 1, len(status.CheckStatuses))
-	assert.Equal(t, CheckStatus{Status: Status{State: StateDown}}, status.CheckStatuses[check.Name])
+	assert.Equal(t, expectedStatus, status.CheckStatuses[check.Name])
 }
 
 func TestCheck(t *testing.T) {
-	healthMonitor := New()
+	healthMonitor := health.New()
 	ctx := context.Background()
 
-	checkHealthFunc := func(ctx context.Context) Status {
-		return Status{State: StateUp}
+	checkHealthFunc := func(ctx context.Context) health.Status {
+		return health.Status{State: health.StateUp}
 	}
-	check := NewCheck("check", checkHealthFunc)
+	check := health.NewCheck("check", checkHealthFunc)
 	healthMonitor.Monitor(ctx, check)
 
 	// Wait for goroutines to kick in
@@ -65,11 +77,11 @@ func TestCheck(t *testing.T) {
 
 	status := healthMonitor.Check()
 
-	assert.Equal(t, StateUp, status.State)
+	assert.Equal(t, health.StateUp, status.State)
 	assert.Equal(t, 1, len(status.CheckStatuses))
 
 	checkStatus := status.CheckStatuses[check.Name]
-	assert.Equal(t, Status{State: StateUp}, checkStatus.Status)
+	assert.Equal(t, health.Status{State: health.StateUp}, checkStatus.Status)
 	assert.NotEqual(t, 0, checkStatus.Timestamp, "Check status timestamp was not updated")
 }
 
@@ -78,16 +90,16 @@ func TestCheckDetails(t *testing.T) {
 		ConnectionCount int
 	}
 
-	healthMonitor := New()
+	healthMonitor := health.New()
 	ctx := context.Background()
 
-	checkHealthFunc := func(ctx context.Context) Status {
-		return Status{
-			State:   StateWarn,
+	checkHealthFunc := func(ctx context.Context) health.Status {
+		return health.Status{
+			State:   health.StateWarn,
 			Details: CustomStatusDetails{ConnectionCount: 652},
 		}
 	}
-	check := NewCheck("check", checkHealthFunc)
+	check := health.NewCheck("check", checkHealthFunc)
 	healthMonitor.Monitor(ctx, check)
 
 	// Wait for goroutines to kick in
@@ -95,25 +107,25 @@ func TestCheckDetails(t *testing.T) {
 
 	status := healthMonitor.Check()
 
-	assert.Equal(t, StateWarn, status.State)
+	assert.Equal(t, health.StateWarn, status.State)
 	assert.Equal(t, 1, len(status.CheckStatuses))
 
 	checkStatus := status.CheckStatuses[check.Name]
-	assert.Equal(t, Status{State: StateWarn, Details: CustomStatusDetails{ConnectionCount: 652}}, checkStatus.Status)
+	assert.Equal(t, health.Status{State: health.StateWarn, Details: CustomStatusDetails{ConnectionCount: 652}}, checkStatus.Status)
 	assert.NotEqual(t, 0, checkStatus.Timestamp, "Check status timestamp was not updated")
 }
 
 func TestCheckNoTimeout(t *testing.T) {
-	healthMonitor := New()
+	healthMonitor := health.New()
 	ctx := context.Background()
 
-	checkHealthFunc := func(ctx context.Context) Status {
+	checkHealthFunc := func(ctx context.Context) health.Status {
 		_, ok := ctx.Deadline()
 		assert.False(t, ok, "Check was supplied with a deadline when timeout is not specified")
 
-		return Status{State: StateWarn}
+		return health.Status{State: health.StateWarn}
 	}
-	check := NewCheck("check", checkHealthFunc)
+	check := health.NewCheck("check", checkHealthFunc)
 	healthMonitor.Monitor(ctx, check)
 
 	// Wait for goroutines to kick in
@@ -121,25 +133,25 @@ func TestCheckNoTimeout(t *testing.T) {
 
 	status := healthMonitor.Check()
 
-	assert.Equal(t, StateWarn, status.State)
+	assert.Equal(t, health.StateWarn, status.State)
 	assert.Equal(t, 1, len(status.CheckStatuses))
 
 	checkStatus := status.CheckStatuses[check.Name]
-	assert.Equal(t, Status{State: StateWarn}, checkStatus.Status)
+	assert.Equal(t, health.Status{State: health.StateWarn}, checkStatus.Status)
 	assert.NotEqual(t, 0, checkStatus.Timestamp, "Check status timestamp was not updated")
 }
 
 func TestCheckTimeout(t *testing.T) {
-	healthMonitor := New()
+	healthMonitor := health.New()
 	ctx := context.Background()
 
-	checkHealthFunc := func(ctx context.Context) Status {
+	checkHealthFunc := func(ctx context.Context) health.Status {
 		_, ok := ctx.Deadline()
 		assert.True(t, ok, "Check was not supplied with a deadline when timeout is specified")
 
-		return Status{State: StateWarn}
+		return health.Status{State: health.StateWarn}
 	}
-	check := NewCheck("check", checkHealthFunc)
+	check := health.NewCheck("check", checkHealthFunc)
 	check.Timeout = time.Second * 1
 	healthMonitor.Monitor(ctx, check)
 
@@ -148,11 +160,11 @@ func TestCheckTimeout(t *testing.T) {
 
 	status := healthMonitor.Check()
 
-	assert.Equal(t, StateWarn, status.State)
+	assert.Equal(t, health.StateWarn, status.State)
 	assert.Equal(t, 1, len(status.CheckStatuses))
 
 	checkStatus := status.CheckStatuses[check.Name]
-	assert.Equal(t, Status{State: StateWarn}, checkStatus.Status)
+	assert.Equal(t, health.Status{State: health.StateWarn}, checkStatus.Status)
 	assert.NotEqual(t, 0, checkStatus.Timestamp, "Check status timestamp was not updated")
 }
 
@@ -161,22 +173,22 @@ func TestCheckMultiple(t *testing.T) {
 		ConnectionCount int
 	}
 
-	healthMonitor := New()
+	healthMonitor := health.New()
 	ctx := context.Background()
 
-	checkAHealthFunc := func(ctx context.Context) Status {
-		return Status{State: StateUp}
+	checkAHealthFunc := func(ctx context.Context) health.Status {
+		return health.Status{State: health.StateUp}
 	}
-	checkA := NewCheck("checkA", checkAHealthFunc)
+	checkA := health.NewCheck("checkA", checkAHealthFunc)
 	healthMonitor.Monitor(ctx, checkA)
 
-	checkBHealthFunc := func(ctx context.Context) Status {
-		return Status{
-			State:   StateWarn,
+	checkBHealthFunc := func(ctx context.Context) health.Status {
+		return health.Status{
+			State:   health.StateWarn,
 			Details: CustomStatusDetails{ConnectionCount: 104},
 		}
 	}
-	checkB := NewCheck("checkB", checkBHealthFunc)
+	checkB := health.NewCheck("checkB", checkBHealthFunc)
 	healthMonitor.Monitor(ctx, checkB)
 
 	// Wait for goroutines to kick in
@@ -184,41 +196,92 @@ func TestCheckMultiple(t *testing.T) {
 
 	status := healthMonitor.Check()
 
-	assert.Equal(t, StateWarn, status.State)
+	assert.Equal(t, health.StateWarn, status.State)
 	assert.Equal(t, 2, len(status.CheckStatuses))
 
 	checkAStatus := status.CheckStatuses[checkA.Name]
-	assert.Equal(t, Status{State: StateUp}, checkAStatus.Status)
+	expectedCheckAStatus := health.Status{State: health.StateUp}
+	assert.Equal(t, expectedCheckAStatus, checkAStatus.Status)
 	assert.NotEqual(t, 0, checkAStatus.Timestamp, "Check status timestamp was not updated")
 
 	checkBStatus := status.CheckStatuses[checkB.Name]
-	assert.Equal(t, Status{State: StateWarn, Details: CustomStatusDetails{ConnectionCount: 104}}, checkBStatus.Status)
+	expectedCheckBStatus := health.Status{
+		State:   health.StateWarn,
+		Details: CustomStatusDetails{ConnectionCount: 104},
+	}
+	assert.Equal(t, expectedCheckBStatus, checkBStatus.Status)
+	assert.NotEqual(t, 0, checkBStatus.Timestamp, "Check status timestamp was not updated")
+}
+
+func TestCheckMultipleVariadicMonitor(t *testing.T) {
+	type CustomStatusDetails struct {
+		ConnectionCount int
+	}
+
+	healthMonitor := health.New()
+	ctx := context.Background()
+
+	checkAHealthFunc := func(ctx context.Context) health.Status {
+		return health.Status{State: health.StateUp}
+	}
+	checkA := health.NewCheck("checkA", checkAHealthFunc)
+
+	checkBHealthFunc := func(ctx context.Context) health.Status {
+		return health.Status{
+			State:   health.StateWarn,
+			Details: CustomStatusDetails{ConnectionCount: 104},
+		}
+	}
+	checkB := health.NewCheck("checkB", checkBHealthFunc)
+
+	// Use variadic argument for monitor
+	healthMonitor.Monitor(ctx, checkA, checkB)
+
+	// Wait for goroutines to kick in
+	time.Sleep(time.Millisecond * 100)
+
+	status := healthMonitor.Check()
+
+	assert.Equal(t, health.StateWarn, status.State)
+	assert.Equal(t, 2, len(status.CheckStatuses))
+
+	checkAStatus := status.CheckStatuses[checkA.Name]
+	expectedCheckAStatus := health.Status{State: health.StateUp}
+	assert.Equal(t, expectedCheckAStatus, checkAStatus.Status)
+	assert.NotEqual(t, 0, checkAStatus.Timestamp, "Check status timestamp was not updated")
+
+	checkBStatus := status.CheckStatuses[checkB.Name]
+	expectedCheckBStatus := health.Status{
+		State:   health.StateWarn,
+		Details: CustomStatusDetails{ConnectionCount: 104},
+	}
+	assert.Equal(t, expectedCheckBStatus, checkBStatus.Status)
 	assert.NotEqual(t, 0, checkBStatus.Timestamp, "Check status timestamp was not updated")
 }
 
 func TestCheckTimeoutEndsExecution(t *testing.T) {
-	healthMonitor := New()
+	healthMonitor := health.New()
 	ctx := context.Background()
 
 	ttl := time.Duration(time.Millisecond * 100)
 
-	checkFunc := func(ctx context.Context) Status {
+	checkFunc := func(ctx context.Context) health.Status {
 		select {
 		case <-time.After(time.Millisecond * 300):
 			// Only return Up after the timeout has been exceeded
-			return Status{State: StateUp}
+			return health.Status{State: health.StateUp}
 		case <-ctx.Done():
 			// Return Degraded if the timeout has been exceeded
-			return Status{State: StateWarn}
+			return health.Status{State: health.StateWarn}
 		}
 	}
 
-	checkA := NewCheck("checkA", checkFunc)
+	checkA := health.NewCheck("checkA", checkFunc)
 	checkA.TTL = ttl
 	checkA.Timeout = time.Duration(time.Millisecond * 200)
 	healthMonitor.Monitor(ctx, checkA)
 
-	checkB := NewCheck("checkB", checkFunc)
+	checkB := health.NewCheck("checkB", checkFunc)
 	checkB.TTL = ttl
 	checkA.Timeout = time.Duration(time.Second)
 	healthMonitor.Monitor(ctx, checkB)
@@ -228,37 +291,37 @@ func TestCheckTimeoutEndsExecution(t *testing.T) {
 
 	status := healthMonitor.Check()
 
-	assert.Equal(t, StateWarn, status.State)
+	assert.Equal(t, health.StateWarn, status.State)
 	assert.Equal(t, 2, len(status.CheckStatuses))
 
 	checkAStatus := status.CheckStatuses[checkA.Name]
-	assert.Equal(t, Status{State: StateWarn}, checkAStatus.Status)
+	assert.Equal(t, health.Status{State: health.StateWarn}, checkAStatus.Status)
 	assert.NotEqual(t, 0, checkAStatus.Timestamp, "Last executed time was not updated")
 
 	checkBStatus := status.CheckStatuses[checkB.Name]
-	assert.Equal(t, Status{State: StateUp}, checkBStatus.Status)
+	assert.Equal(t, health.Status{State: health.StateUp}, checkBStatus.Status)
 	assert.NotEqual(t, 0, checkBStatus.Timestamp, "Last executed time was not updated")
 }
 
 func TestCheckExecutesOnTimer(t *testing.T) {
-	healthMonitor := New()
+	healthMonitor := health.New()
 	ctx := context.Background()
 
 	var atomicCheckACounter int32
-	checkAFunc := func(ctx context.Context) Status {
+	checkAFunc := func(ctx context.Context) health.Status {
 		atomic.AddInt32(&atomicCheckACounter, 1)
-		return Status{State: StateUp}
+		return health.Status{State: health.StateUp}
 	}
-	checkA := NewCheck("checkA", checkAFunc)
+	checkA := health.NewCheck("checkA", checkAFunc)
 	checkA.TTL = time.Millisecond * 100
 	healthMonitor.Monitor(ctx, checkA)
 
 	var atomicCheckBCounter int32
-	checkBFunc := func(ctx context.Context) Status {
+	checkBFunc := func(ctx context.Context) health.Status {
 		atomic.AddInt32(&atomicCheckBCounter, 1)
-		return Status{State: StateDown}
+		return health.Status{State: health.StateDown}
 	}
-	checkB := NewCheck("checkB", checkBFunc)
+	checkB := health.NewCheck("checkB", checkBFunc)
 	checkB.TTL = time.Millisecond * 200
 	healthMonitor.Monitor(ctx, checkB)
 
@@ -277,24 +340,24 @@ func TestCheckExecutesOnTimer(t *testing.T) {
 }
 
 func TestCheckCancelContextStopsCheck(t *testing.T) {
-	healthMonitor := New()
+	healthMonitor := health.New()
 	ctx, cancel := context.WithCancel(context.Background())
 
 	var atomicCheckACounter int32
-	checkAFunc := func(ctx context.Context) Status {
+	checkAFunc := func(ctx context.Context) health.Status {
 		atomic.AddInt32(&atomicCheckACounter, 1)
-		return Status{State: StateUp}
+		return health.Status{State: health.StateUp}
 	}
-	checkA := NewCheck("checkA", checkAFunc)
+	checkA := health.NewCheck("checkA", checkAFunc)
 	checkA.TTL = time.Millisecond * 100
 	healthMonitor.Monitor(ctx, checkA)
 
 	var atomicCheckBCounter int32
-	checkBFunc := func(ctx context.Context) Status {
+	checkBFunc := func(ctx context.Context) health.Status {
 		atomic.AddInt32(&atomicCheckBCounter, 1)
-		return Status{State: StateDown}
+		return health.Status{State: health.StateDown}
 	}
-	checkB := NewCheck("checkB", checkBFunc)
+	checkB := health.NewCheck("checkB", checkBFunc)
 	checkA.TTL = time.Millisecond * 200
 	healthMonitor.Monitor(ctx, checkB)
 
