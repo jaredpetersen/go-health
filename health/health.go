@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-// State represents the health of the resource being checked as a simple value.
+// State represents the health of the resource being checked as a simple indicator.
 type State int
 
 // States must be ordered from most degraded to least degraded here so that checks work their way up to the best state.
@@ -31,7 +31,7 @@ type MonitorStatus struct {
 	CheckStatuses map[string]CheckStatus
 }
 
-// CheckStatus indicates the health of an individual check and when that information was retrieved.
+// CheckStatus indicates the health of an individual check and when that information was determined.
 type CheckStatus struct {
 	// Status of the resource.
 	Status Status
@@ -39,7 +39,7 @@ type CheckStatus struct {
 	Timestamp time.Time
 }
 
-// Status indicates resource health state and contains any additional, arbitrary details that may be relevant.
+// Status indicates resource health state and may contain any additional, arbitrary details that are relevant.
 type Status struct {
 	// State is a high level indicator for resource health.
 	State State
@@ -103,7 +103,7 @@ func (mtr *Monitor) setCheckStatus(checkName string, checkStatus CheckStatus) {
 	mtr.mtx.Unlock()
 }
 
-// Monitor starts a goroutine for each check the executes the check's function and caches the result. This goroutine
+// Monitor starts a goroutine for each check that executes the check's function and caches the result. This goroutine
 // will wait between polls as defined by check's TTL to avoid spamming the resource being evaluated. If a timeout is
 // set on the check, the context provided to Monitor will be wrapped in a deadline context and provided to the check
 // function to facilitate early termination.
