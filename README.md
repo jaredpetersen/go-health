@@ -11,7 +11,7 @@ resources asynchronously with built-in caching and timeouts. Only what you absol
 ## Quickstart
 Install the package:
 ```sh
-go get github.com/jaredpetersen/go-health/health@latest
+go get github.com/jaredpetersen/go-health/health
 ```
 
 Example:
