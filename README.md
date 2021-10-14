@@ -1,38 +1,46 @@
 # go-health
 #### 🏥 Barebones, detailed health check library for Go
+[![Go Reference](https://pkg.go.dev/badge/github.com/jaredpetersen/go-health/health.svg)](https://pkg.go.dev/github.com/jaredpetersen/go-health/health)
+
 go-health does away with the kitchen sink mentality of other health check libraries. You aren't getting a default HTTP
 handler out of the box that is router dependent or has opinions about the shape or format of the health data being
 published. You aren't getting pre-built health checks. But you do get a simple system for checking the health of
 resources asynchronously with built-in caching and timeouts. Only what you absolutely need, and nothing else.
 
 ## Quickstart
+Install the package:
+```sh
+go get github.com/jaredpetersen/go-health/health@latest
+```
+
+Usage:
 ```go
-    // Create the health monitor that will be polling the resources.
-	healthMonitor := health.New()
+// Create the health monitor that will be polling the resources.
+healthMonitor := health.New()
 
-	// Prepare the context -- this can be used to stop async monitoring.
-	ctx := context.Background()
+// Prepare the context -- this can be used to stop async monitoring.
+ctx := context.Background()
 
-	// Create your health checks.
-	fooHealthCheckFunc := func(ctx context.Context) health.Status {
-		return health.Status{State: health.StateDown}
-	}
-	fooHealthCheck := health.NewCheck("foo", fooHealthCheckFunc)
-	fooHealthCheck.Timeout = time.Second * 2
-	healthMonitor.Monitor(ctx, fooHealthCheck)
+// Create your health checks.
+fooHealthCheckFunc := func(ctx context.Context) health.Status {
+    return health.Status{State: health.StateDown}
+}
+fooHealthCheck := health.NewCheck("foo", fooHealthCheckFunc)
+fooHealthCheck.Timeout = time.Second * 2
+healthMonitor.Monitor(ctx, fooHealthCheck)
 
-	barHealthCheckFunc := func(ctx context.Context) health.Status {
-		return health.Status{State: health.StateUp}
-	}
-	barHealthCheck := health.NewCheck("bar", barHealthCheckFunc)
-	barHealthCheck.Timeout = time.Second * 2
-	healthMonitor.Monitor(ctx, barHealthCheck)
+barHealthCheckFunc := func(ctx context.Context) health.Status {
+    return health.Status{State: health.StateUp}
+}
+barHealthCheck := health.NewCheck("bar", barHealthCheckFunc)
+barHealthCheck.Timeout = time.Second * 2
+healthMonitor.Monitor(ctx, barHealthCheck)
 
-	// Wait for goroutines to kick off
-	time.Sleep(time.Millisecond * 100)
+// Wait for goroutines to kick off
+time.Sleep(time.Millisecond * 100)
 
-	// Retrieve the most recent cached result for all of the checks.
-	healthMonitor.Check()
+// Retrieve the most recent cached result for all of the checks.
+healthMonitor.Check()
 ```
 
 ## Asynchronous Checking and Caching
