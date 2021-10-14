@@ -64,7 +64,7 @@ By default, all checks created via `health.NewCheck()` are configured with a def
 ## Timeouts
 You can optionally configure a timeout for each check. If set, the context provided to the check function will have a
 deadline set. When the deadline expires, the context will close the Done channel, just like the normal context
-behavior. go-health does not automatically kill the check execution, it only leverages the context to communicate that
+behavior. go-health does not kill the check function execution, it only leverages the context to communicate that
 the configured timeout deadline has been exceeded. It is your responsibility to handle the context appropriately. For
 more information on context with deadline, see the [context documentation](https://pkg.go.dev/context#WithDeadline).
 
